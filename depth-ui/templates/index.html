@@ -1,1039 +1,688 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>DepthSense — Res-UNet Depth Estimation</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet" />
-  <style>
-    /* ── DESIGN TOKENS ─────────────────────────────────────────────── */
-    :root {
-      --bg:          #080b10;
-      --surface:     #0d1117;
-      --border:      #1e2a38;
-      --border-glow: #00e5ff33;
-      --accent:      #00e5ff;
-      --accent2:     #7b5ea7;
-      --text:        #c9d1d9;
-      --text-dim:    #586069;
-      --text-bright: #f0f6fc;
-      --success:     #39d353;
-      --warn:        #f0a93b;
-      --danger:      #ff4d4d;
-      --near:        #00e5ff;
-      --mid:         #7b5ea7;
-      --far:         #ff6b6b;
-      --font-mono:   'Space Mono', monospace;
-      --font-ui:     'Syne', sans-serif;
-      --r:           8px;
-      --r-lg:        14px;
-    }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DepthSense — Next-Gen Depth Estimation</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --accent: #00f2ff;
+            --accent-glow: rgba(0, 242, 255, 0.4);
+            --secondary: #7000ff;
+            --glass: rgba(15, 20, 30, 0.7);
+            --border: rgba(255, 255, 255, 0.08);
+        }
 
-    /* ── RESET ─────────────────────────────────────────────────────── */
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    html { scroll-behavior: smooth; }
-    body {
-      font-family: var(--font-ui);
-      background: var(--bg);
-      color: var(--text);
-      min-height: 100vh;
-      overflow-x: hidden;
-    }
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background: #05070a;
+            color: #e2e8f0;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
 
-    /* ── BACKGROUND GRID ──────────────────────────────────────────── */
-    body::before {
-      content: '';
-      position: fixed;
-      inset: 0;
-      background-image:
-        linear-gradient(rgba(0,229,255,0.03) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(0,229,255,0.03) 1px, transparent 1px);
-      background-size: 40px 40px;
-      pointer-events: none;
-      z-index: 0;
-    }
+        /* ── ANIMATION KEYFRAMES ─────────────────────────────────────── */
+        @keyframes fadeInUp {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
 
-    /* ── LAYOUT ───────────────────────────────────────────────────── */
-    .page-wrap {
-      position: relative;
-      z-index: 1;
-      max-width: 1280px;
-      margin: 0 auto;
-      padding: 0 24px 80px;
-    }
+        @keyframes scanline {
+            0% { top: 0%; }
+            100% { top: 100%; }
+        }
 
-    /* ── HEADER ───────────────────────────────────────────────────── */
-    header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 28px 0 24px;
-      border-bottom: 1px solid var(--border);
-    }
-    .logo {
-      display: flex;
-      align-items: center;
-      gap: 14px;
-    }
-    .logo-icon {
-      width: 44px; height: 44px;
-      border-radius: 10px;
-      background: linear-gradient(135deg, var(--accent), var(--accent2));
-      display: grid;
-      place-items: center;
-      font-size: 20px;
-      box-shadow: 0 0 20px rgba(0,229,255,0.3);
-      flex-shrink: 0;
-    }
-    .logo-text h1 {
-      font-size: 1.35rem;
-      font-weight: 800;
-      color: var(--text-bright);
-      letter-spacing: -0.02em;
-    }
-    .logo-text span {
-      font-family: var(--font-mono);
-      font-size: 0.7rem;
-      color: var(--accent);
-      letter-spacing: 0.1em;
-    }
-    .header-right {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-    .pill {
-      font-family: var(--font-mono);
-      font-size: 0.65rem;
-      padding: 4px 10px;
-      border-radius: 999px;
-      border: 1px solid;
-      letter-spacing: 0.05em;
-    }
-    .pill-green  { border-color: var(--success); color: var(--success); background: rgba(57,211,83,0.08); }
-    .pill-yellow { border-color: var(--warn);    color: var(--warn);    background: rgba(240,169,59,0.08); }
-    .pill-red    { border-color: var(--danger);  color: var(--danger);  background: rgba(255,77,77,0.08); }
+        @keyframes shimmer {
+            0% { background-position: -200% 0; }
+            100% { background-position: 200% 0; }
+        }
 
-    /* ── MODEL LOADER PANEL ──────────────────────────────────────── */
-    .model-panel {
-      margin-top: 28px;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--r-lg);
-      overflow: hidden;
-    }
-    .panel-header {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 14px 20px;
-      border-bottom: 1px solid var(--border);
-      background: rgba(0,229,255,0.03);
-      cursor: pointer;
-      user-select: none;
-    }
-    .panel-header h2 {
-      font-size: 0.85rem;
-      font-weight: 600;
-      color: var(--text-bright);
-      letter-spacing: 0.03em;
-    }
-    .panel-header .arrow {
-      margin-left: auto;
-      color: var(--text-dim);
-      transition: transform 0.2s;
-    }
-    .panel-header.open .arrow { transform: rotate(180deg); }
-    .panel-body {
-      padding: 20px;
-    }
-    .model-row {
-      display: flex;
-      gap: 10px;
-      align-items: center;
-    }
-    .model-input {
-      flex: 1;
-      font-family: var(--font-mono);
-      font-size: 0.8rem;
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: var(--r);
-      color: var(--text-bright);
-      padding: 10px 14px;
-      outline: none;
-      transition: border-color 0.2s, box-shadow 0.2s;
-    }
-    .model-input:focus {
-      border-color: var(--accent);
-      box-shadow: 0 0 0 3px rgba(0,229,255,0.1);
-    }
-    .model-input::placeholder { color: var(--text-dim); }
+        /* ── MESH BACKGROUND ─────────────────────────────────────────── */
+        .mesh-bg {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            background: 
+                radial-gradient(circle at 0% 0%, rgba(112, 0, 255, 0.15) 0%, transparent 50%),
+                radial-gradient(circle at 100% 100%, rgba(0, 242, 255, 0.15) 0%, transparent 50%),
+                radial-gradient(circle at 50% 50%, rgba(5, 7, 10, 1) 0%, transparent 100%);
+        }
 
-    /* ── BUTTONS ───────────────────────────────────────────────────── */
-    .btn {
-      font-family: var(--font-ui);
-      font-weight: 600;
-      font-size: 0.82rem;
-      padding: 10px 18px;
-      border-radius: var(--r);
-      border: none;
-      cursor: pointer;
-      transition: all 0.18s;
-      display: inline-flex;
-      align-items: center;
-      gap: 7px;
-      white-space: nowrap;
-    }
-    .btn-primary {
-      background: var(--accent);
-      color: #000;
-    }
-    .btn-primary:hover { filter: brightness(1.15); box-shadow: 0 0 16px rgba(0,229,255,0.4); }
-    .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; filter: none; box-shadow: none; }
-    .btn-ghost {
-      background: transparent;
-      border: 1px solid var(--border);
-      color: var(--text);
-    }
-    .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
-    .btn-danger-ghost {
-      background: transparent;
-      border: 1px solid rgba(255,77,77,0.4);
-      color: var(--danger);
-    }
-    .model-note {
-      margin-top: 10px;
-      font-size: 0.75rem;
-      color: var(--text-dim);
-      font-family: var(--font-mono);
-    }
-    .model-note strong { color: var(--accent); }
+        .mesh-sphere {
+            position: fixed;
+            border-radius: 50%;
+            filter: blur(80px);
+            z-index: -1;
+            opacity: 0.4;
+            animation: float 20s infinite alternate ease-in-out;
+        }
 
-    /* ── MAIN GRID ────────────────────────────────────────────────── */
-    .main-grid {
-      margin-top: 28px;
-      display: grid;
-      grid-template-columns: 380px 1fr;
-      gap: 20px;
-    }
-    @media (max-width: 900px) { .main-grid { grid-template-columns: 1fr; } }
+        @keyframes float {
+            0% { transform: translate(0, 0) scale(1) rotate(0deg); }
+            100% { transform: translate(10vw, 10vh) scale(1.2) rotate(10deg); }
+        }
 
-    /* ── CARDS ────────────────────────────────────────────────────── */
-    .card {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--r-lg);
-      overflow: hidden;
-    }
-    .card-title {
-      font-size: 0.75rem;
-      font-weight: 700;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      color: var(--text-dim);
-      padding: 14px 20px;
-      border-bottom: 1px solid var(--border);
-      background: rgba(255,255,255,0.01);
-    }
+        /* ── GLASS & CARDS ───────────────────────────────────────────── */
+        .glass-card {
+            background: var(--glass);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+            transition: all 0.4s cubic-bezier(0.2, 0.8, 0.2, 1);
+        }
 
-    /* ── UPLOAD ZONE ──────────────────────────────────────────────── */
-    .upload-zone {
-      margin: 20px;
-      border: 2px dashed var(--border);
-      border-radius: var(--r-lg);
-      padding: 40px 20px;
-      text-align: center;
-      cursor: pointer;
-      transition: border-color 0.2s, background 0.2s;
-    }
-    .upload-zone:hover, .upload-zone.drag-over {
-      border-color: var(--accent);
-      background: rgba(0,229,255,0.04);
-    }
-    .upload-zone input { display: none; }
-    .upload-icon {
-      font-size: 2.5rem;
-      margin-bottom: 12px;
-      display: block;
-    }
-    .upload-zone h3 {
-      font-size: 0.95rem;
-      font-weight: 700;
-      color: var(--text-bright);
-      margin-bottom: 6px;
-    }
-    .upload-zone p {
-      font-size: 0.78rem;
-      color: var(--text-dim);
-    }
+        .glass-card:hover {
+            border-color: rgba(0, 242, 255, 0.3);
+            transform: translateY(-4px);
+            box-shadow: 0 12px 48px rgba(0, 0, 0, 0.5);
+        }
 
-    /* ── PREVIEW ──────────────────────────────────────────────────── */
-    .preview-box {
-      margin: 16px 20px;
-      display: none;
-      position: relative;
-    }
-    .preview-box.visible { display: block; }
-    .preview-box img {
-      width: 100%;
-      border-radius: var(--r);
-      display: block;
-      border: 1px solid var(--border);
-    }
-    .preview-clear {
-      position: absolute;
-      top: 8px; right: 8px;
-      width: 26px; height: 26px;
-      border-radius: 50%;
-      background: rgba(8,11,16,0.8);
-      border: 1px solid var(--border);
-      color: var(--text-dim);
-      font-size: 1rem;
-      cursor: pointer;
-      display: grid;
-      place-items: center;
-      line-height: 1;
-      transition: color 0.15s, border-color 0.15s;
-    }
-    .preview-clear:hover { color: var(--danger); border-color: var(--danger); }
+        .reveal {
+            opacity: 0;
+            animation: fadeInUp 0.8s cubic-bezier(0.2, 0.8, 0.2, 1) forwards;
+        }
 
-    /* ── OPTIONS ──────────────────────────────────────────────────── */
-    .options-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 12px;
-      padding: 0 20px 20px;
-    }
-    .option-group label {
-      display: block;
-      font-size: 0.7rem;
-      font-weight: 700;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      color: var(--text-dim);
-      margin-bottom: 6px;
-    }
-    .option-group select {
-      width: 100%;
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: var(--r);
-      color: var(--text-bright);
-      font-size: 0.8rem;
-      font-family: var(--font-mono);
-      padding: 8px 10px;
-      outline: none;
-      cursor: pointer;
-      transition: border-color 0.2s;
-    }
-    .option-group select:focus { border-color: var(--accent); }
+        /* ── BUTTONS ─────────────────────────────────────────────────── */
+        .btn-primary {
+            background: linear-gradient(135deg, var(--accent), var(--secondary));
+            color: white;
+            font-weight: 600;
+            border-radius: 12px;
+            transition: all 0.3s;
+            position: relative;
+            overflow: hidden;
+        }
 
-    .run-btn {
-      width: calc(100% - 40px);
-      margin: 0 20px 20px;
-      padding: 13px;
-      font-size: 0.9rem;
-    }
+        .btn-primary:hover {
+            transform: scale(1.02);
+            box-shadow: 0 0 25px var(--accent-glow);
+        }
 
-    /* ── RESULTS PANEL ────────────────────────────────────────────── */
-    .results-card { grid-row: span 2; }
+        .btn-primary:active { transform: scale(0.98); }
 
-    .results-placeholder {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: 80px 20px;
-      text-align: center;
-      color: var(--text-dim);
-    }
-    .results-placeholder .big-icon { font-size: 3.5rem; margin-bottom: 16px; opacity: 0.3; }
-    .results-placeholder p { font-size: 0.85rem; max-width: 260px; line-height: 1.6; }
+        .btn-primary.processing {
+            background: linear-gradient(90deg, var(--accent), var(--secondary), var(--accent));
+            background-size: 200% 100%;
+            animation: shimmer 2s linear infinite;
+        }
 
-    .results-content { display: none; }
-    .results-content.visible { display: block; }
+        /* ── SCANNING EFFECT ─────────────────────────────────────────── */
+        .scanning-container {
+            position: relative;
+            overflow: hidden;
+        }
 
-    /* Tab nav */
-    .tab-nav {
-      display: flex;
-      gap: 0;
-      border-bottom: 1px solid var(--border);
-      padding: 0 20px;
-    }
-    .tab-btn {
-      font-family: var(--font-ui);
-      font-size: 0.78rem;
-      font-weight: 600;
-      color: var(--text-dim);
-      background: none;
-      border: none;
-      border-bottom: 2px solid transparent;
-      padding: 12px 14px;
-      cursor: pointer;
-      transition: color 0.15s, border-color 0.15s;
-      margin-bottom: -1px;
-    }
-    .tab-btn:hover { color: var(--text-bright); }
-    .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+        .scanning-line {
+            position: absolute;
+            left: 0;
+            width: 100%;
+            height: 4px;
+            background: linear-gradient(to bottom, transparent, var(--accent), transparent);
+            z-index: 10;
+            pointer-events: none;
+            display: none;
+        }
 
-    .tab-panel { display: none; }
-    .tab-panel.active { display: block; }
+        .scanning-active .scanning-line {
+            display: block;
+            animation: scanline 2s ease-in-out infinite;
+        }
 
-    /* Image comparison */
-    .img-grid {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 12px;
-      padding: 16px 20px;
-    }
-    .img-tile {
-      position: relative;
-    }
-    .img-tile img {
-      width: 100%;
-      display: block;
-      border-radius: var(--r);
-      border: 1px solid var(--border);
-    }
-    .img-tile-label {
-      font-family: var(--font-mono);
-      font-size: 0.65rem;
-      color: var(--text-dim);
-      margin-bottom: 6px;
-      letter-spacing: 0.05em;
-    }
-    .full-img {
-      padding: 16px 20px;
-    }
-    .full-img img {
-      width: 100%;
-      border-radius: var(--r);
-      border: 1px solid var(--border);
-    }
+        /* ── TABS ────────────────────────────────────────────────────── */
+        .tab-panel {
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
 
-    /* ── METRICS ──────────────────────────────────────────────────── */
-    .metrics-panel { padding: 16px 20px; }
+        .tab-active {
+            color: var(--accent);
+            position: relative;
+        }
 
-    .metrics-row {
-      display: grid;
-      grid-template-columns: repeat(3, 1fr);
-      gap: 10px;
-      margin-bottom: 20px;
-    }
-    .metric-card {
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: var(--r);
-      padding: 14px 16px;
-    }
-    .metric-card .label {
-      font-family: var(--font-mono);
-      font-size: 0.62rem;
-      color: var(--text-dim);
-      letter-spacing: 0.08em;
-      margin-bottom: 6px;
-    }
-    .metric-card .value {
-      font-family: var(--font-mono);
-      font-size: 1.1rem;
-      font-weight: 700;
-      color: var(--text-bright);
-    }
-    .metric-card .unit {
-      font-size: 0.65rem;
-      color: var(--text-dim);
-      font-weight: 400;
-    }
+        .tab-active::after {
+            content: '';
+            position: absolute;
+            bottom: -1px;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background: var(--accent);
+            box-shadow: 0 0 10px var(--accent);
+        }
 
-    /* Depth distribution bar */
-    .dist-section h3 {
-      font-size: 0.72rem;
-      font-weight: 700;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      color: var(--text-dim);
-      margin-bottom: 12px;
-    }
-    .dist-bar {
-      height: 24px;
-      border-radius: var(--r);
-      overflow: hidden;
-      display: flex;
-      margin-bottom: 10px;
-    }
-    .dist-segment {
-      height: 100%;
-      transition: width 0.6s cubic-bezier(0.23, 1, 0.32, 1);
-    }
-    .dist-segment.near   { background: var(--near); }
-    .dist-segment.mid    { background: var(--mid); }
-    .dist-segment.far    { background: var(--far); }
+        /* ── MISC ────────────────────────────────────────────────────── */
+        .input-glass {
+            background: rgba(255, 255, 255, 0.03);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            color: white;
+            transition: all 0.3s;
+        }
 
-    .dist-legend {
-      display: flex;
-      gap: 16px;
-    }
-    .legend-item {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      font-size: 0.72rem;
-      color: var(--text-dim);
-    }
-    .legend-dot {
-      width: 8px; height: 8px;
-      border-radius: 50%;
-    }
+        .input-glass:focus {
+            border-color: var(--accent);
+            background: rgba(255, 255, 255, 0.08);
+            outline: none;
+        }
 
-    .inf-time {
-      margin-top: 16px;
-      padding: 10px 14px;
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: var(--r);
-      font-family: var(--font-mono);
-      font-size: 0.75rem;
-      color: var(--text-dim);
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-    .inf-time strong { color: var(--accent); }
+        .mono { font-family: 'JetBrains Mono', monospace; }
 
-    /* ── DEMO BADGE ───────────────────────────────────────────────── */
-    .demo-banner {
-      margin: 16px 20px 0;
-      padding: 10px 14px;
-      background: rgba(240,169,59,0.08);
-      border: 1px solid rgba(240,169,59,0.3);
-      border-radius: var(--r);
-      font-size: 0.76rem;
-      color: var(--warn);
-      display: none;
-      align-items: center;
-      gap: 8px;
-    }
-    .demo-banner.visible { display: flex; }
+        .loading-ring {
+            display: inline-block;
+            width: 24px; height: 24px;
+            border: 3px solid rgba(0, 242, 255, 0.1);
+            border-radius: 50%;
+            border-top-color: var(--accent);
+            animation: spin 1s ease-in-out infinite;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
 
-    /* ── LOADING STATE ────────────────────────────────────────────── */
-    .spinner {
-      width: 18px; height: 18px;
-      border: 2px solid rgba(0,229,255,0.2);
-      border-top-color: var(--accent);
-      border-radius: 50%;
-      animation: spin 0.7s linear infinite;
-      flex-shrink: 0;
-    }
-    @keyframes spin { to { transform: rotate(360deg); } }
+        .download-btn {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            width: 40px;
+            height: 40px;
+            border-radius: 12px;
+            background: rgba(15, 20, 30, 0.8);
+            backdrop-filter: blur(8px);
+            border: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--accent);
+            opacity: 0;
+            transform: translateY(-5px);
+            transition: all 0.3s ease;
+            cursor: pointer;
+            z-index: 20;
+        }
 
-    .loading-overlay {
-      display: none;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      padding: 80px 20px;
-      gap: 16px;
-    }
-    .loading-overlay.visible { display: flex; }
-    .loading-overlay p {
-      font-size: 0.85rem;
-      color: var(--text-dim);
-      font-family: var(--font-mono);
-    }
+        .group:hover .download-btn {
+            opacity: 1;
+            transform: translateY(0);
+        }
 
-    /* ── TOAST ────────────────────────────────────────────────────── */
-    #toast-wrap {
-      position: fixed;
-      bottom: 24px;
-      right: 24px;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      z-index: 9999;
-    }
-    .toast {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 12px 16px;
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--r);
-      font-size: 0.82rem;
-      box-shadow: 0 8px 32px rgba(0,0,0,0.4);
-      animation: slideIn 0.25s ease;
-      max-width: 340px;
-    }
-    .toast.success { border-color: var(--success); }
-    .toast.error   { border-color: var(--danger); }
-    .toast.info    { border-color: var(--accent); }
-    @keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: none; opacity: 1; } }
-    @keyframes fadeOut { to { opacity: 0; transform: translateX(100%); } }
-    .toast.out { animation: fadeOut 0.3s ease forwards; }
-
-    /* ── ABOUT SECTION ────────────────────────────────────────────── */
-    .about-card {
-      margin-top: 20px;
-    }
-    .arch-pills {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      padding: 16px 20px;
-    }
-    .arch-pill {
-      font-family: var(--font-mono);
-      font-size: 0.68rem;
-      padding: 5px 12px;
-      border-radius: 999px;
-      background: rgba(0,229,255,0.07);
-      border: 1px solid rgba(0,229,255,0.2);
-      color: var(--accent);
-    }
-    .arch-pill.purple {
-      background: rgba(123,94,167,0.1);
-      border-color: rgba(123,94,167,0.3);
-      color: #a78bca;
-    }
-
-    /* scrollbar */
-    ::-webkit-scrollbar { width: 6px; }
-    ::-webkit-scrollbar-track { background: var(--bg); }
-    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-    ::-webkit-scrollbar-thumb:hover { background: var(--accent); }
-  </style>
+        .download-btn:hover {
+            background: var(--accent);
+            color: #05070a;
+            box-shadow: 0 0 15px var(--accent-glow);
+        }
+    </style>
 </head>
-<body>
+<body class="p-4 md:p-8">
 
-<div class="page-wrap">
+    <div class="mesh-bg"></div>
+    <div class="mesh-sphere bg-cyan-500 w-[400px] h-[400px] top-[-100px] left-[-100px]"></div>
+    <div class="mesh-sphere bg-purple-600 w-[500px] h-[500px] bottom-[-200px] right-[-100px]"></div>
 
-  <!-- ── HEADER ──────────────────────────────────────────────────────── -->
-  <header>
-    <div class="logo">
-      <div class="logo-icon">🔭</div>
-      <div class="logo-text">
-        <h1>DepthSense</h1>
-        <span>RES-UNET · NYU DEPTH V2</span>
-      </div>
-    </div>
-    <div class="header-right">
-      <div id="status-pill" class="pill pill-yellow">⚠ NO MODEL</div>
-    </div>
-  </header>
-
-  <!-- ── MODEL LOADER ─────────────────────────────────────────────────── -->
-  <div class="model-panel">
-    <div class="panel-header" id="panel-toggle">
-      <span style="font-size:1rem">⚙️</span>
-      <h2>Model Configuration</h2>
-      <span class="arrow">▾</span>
-    </div>
-    <div class="panel-body" id="panel-body">
-      <div class="model-row">
-        <input class="model-input" id="model-path" type="text"
-               placeholder="best_resunet_depth_model.h5"
-               value="best_resunet_depth_model.h5" />
-        <button class="btn btn-primary" id="load-btn" onclick="loadModel()">
-          <span id="load-btn-icon">▶</span> Load Model
-        </button>
-        <button class="btn btn-ghost" onclick="demoMode()">Demo Mode</button>
-      </div>
-      <p class="model-note">
-        Place <strong>best_resunet_depth_model.h5</strong> in the same folder as <strong>app.py</strong> — it loads automatically on startup.
-        Also accepts <strong>.keras</strong> format. Use <strong>Demo Mode</strong> to preview without a model.
-      </p>
-    </div>
-  </div>
-
-  <!-- ── MAIN GRID ────────────────────────────────────────────────────── -->
-  <div class="main-grid">
-
-    <!-- LEFT: Upload + Options -->
-    <div style="display:flex;flex-direction:column;gap:20px;">
-
-      <!-- Upload Card -->
-      <div class="card">
-        <div class="card-title">📂 &nbsp;Upload Image</div>
-        <div class="upload-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
-          <input type="file" id="file-input" accept="image/*" onchange="handleFile(this.files[0])" />
-          <span class="upload-icon">🖼️</span>
-          <h3>Drop image here</h3>
-          <p>or click to browse · PNG, JPG, BMP, WebP</p>
-        </div>
-        <div class="preview-box" id="preview-box">
-          <img id="preview-img" src="" alt="preview" />
-          <button class="preview-clear" onclick="clearImage()" title="Remove">×</button>
-        </div>
-      </div>
-
-      <!-- Options Card -->
-      <div class="card">
-        <div class="card-title">🎨 &nbsp;Options</div>
-        <div class="options-grid" style="padding-top:16px;">
-          <div class="option-group">
-            <label>Colormap</label>
-            <select id="cmap-select">
-              <option value="plasma">Plasma</option>
-              <option value="magma">Magma</option>
-              <option value="inferno">Inferno</option>
-              <option value="turbo">Turbo</option>
-              <option value="viridis">Viridis</option>
-              <option value="jet">Jet</option>
-            </select>
-          </div>
-          <div class="option-group">
-            <label>View</label>
-            <select id="view-select" onchange="switchView(this.value)">
-              <option value="side-by-side">Side by Side</option>
-              <option value="composite">Composite</option>
-              <option value="depth-only">Depth Only</option>
-              <option value="greyscale">Greyscale</option>
-            </select>
-          </div>
-        </div>
-        <button class="btn btn-primary run-btn" id="run-btn" onclick="runInference()" disabled>
-          <span id="run-icon">🔍</span> Estimate Depth
-        </button>
-      </div>
-
-    </div>
-
-    <!-- RIGHT: Results -->
-    <div class="card results-card">
-      <div class="card-title">📊 &nbsp;Results</div>
-
-      <!-- Placeholder -->
-      <div class="results-placeholder" id="placeholder">
-        <div class="big-icon">🌊</div>
-        <p>Upload an image and run inference to see the depth map here.</p>
-      </div>
-
-      <!-- Loading -->
-      <div class="loading-overlay" id="loading-overlay">
-        <div class="spinner" style="width:32px;height:32px;border-width:3px;"></div>
-        <p>Running Res-UNet inference…</p>
-      </div>
-
-      <!-- Results -->
-      <div class="results-content" id="results-content">
-        <div class="demo-banner" id="demo-banner">
-          ⚠️ Demo mode — synthetic depth shown. Load a trained model for real predictions.
-        </div>
-
-        <div class="tab-nav">
-          <button class="tab-btn active" onclick="switchTab('visual',this)">Visualisation</button>
-          <button class="tab-btn" onclick="switchTab('metrics',this)">Metrics</button>
-        </div>
-
-        <!-- Visual tab -->
-        <div class="tab-panel active" id="tab-visual">
-          <div class="img-grid" id="view-sidebyside">
-            <div class="img-tile">
-              <div class="img-tile-label">INPUT — RGB</div>
-              <img id="res-orig" src="" alt="original" />
+    <div class="max-w-7xl mx-auto space-y-6">
+        
+        <!-- HEADER -->
+        <header class="flex flex-col md:flex-row justify-between items-center gap-4 py-4 reveal" style="animation-delay: 0.1s">
+            <div class="flex items-center gap-4 group">
+                <div class="w-12 h-12 glass-card flex items-center justify-center text-2xl shadow-lg border-cyan-500/30 group-hover:rotate-12 transition-transform">
+                    🔭
+                </div>
+                <div>
+                    <h1 class="text-3xl font-extrabold tracking-tight text-white flex items-center gap-2">
+                        DepthSense <span class="text-xs px-2 py-1 bg-cyan-500/20 text-cyan-400 rounded-full font-mono uppercase tracking-widest">v2.0 PRO</span>
+                    </h1>
+                    <p class="text-slate-400 text-sm font-medium">Precision Residual U-Net Depth Estimation</p>
+                </div>
             </div>
-            <div class="img-tile">
-              <div class="img-tile-label">OUTPUT — DEPTH</div>
-              <img id="res-depth" src="" alt="depth" />
+            
+            <div id="status-pill" class="glass-card px-4 py-2 flex items-center text-sm font-semibold border-amber-500/20 text-amber-400 transition-colors">
+                <span id="status-dot" class="w-2 h-2 rounded-full mr-3 bg-amber-500 shadow-[0_0_8px_#f59e0b]"></span>
+                <span id="status-text">INIT SYSTEM</span>
             </div>
-          </div>
-          <div class="full-img" id="view-composite" style="display:none;">
-            <div class="img-tile-label" style="margin-bottom:8px;">COMPOSITE — RGB + DEPTH</div>
-            <img id="res-composite" src="" alt="composite" />
-          </div>
-          <div class="full-img" id="view-depthonly" style="display:none;">
-            <div class="img-tile-label" style="margin-bottom:8px;">DEPTH MAP</div>
-            <img id="res-depth2" src="" alt="depth full" />
-          </div>
-          <div class="full-img" id="view-greyscale" style="display:none;">
-            <div class="img-tile-label" style="margin-bottom:8px;">DEPTH GREYSCALE</div>
-            <img id="res-grey" src="" alt="greyscale" />
-          </div>
-        </div>
+        </header>
 
-        <!-- Metrics tab -->
-        <div class="tab-panel" id="tab-metrics">
-          <div class="metrics-panel">
-            <div class="metrics-row">
-              <div class="metric-card">
-                <div class="label">MIN DEPTH</div>
-                <div class="value" id="m-min">—<span class="unit"> m</span></div>
-              </div>
-              <div class="metric-card">
-                <div class="label">MEAN DEPTH</div>
-                <div class="value" id="m-mean">—<span class="unit"> m</span></div>
-              </div>
-              <div class="metric-card">
-                <div class="label">MAX DEPTH</div>
-                <div class="value" id="m-max">—<span class="unit"> m</span></div>
-              </div>
+        <!-- CONFIGURATION PANEL -->
+        <section class="glass-card p-1 reveal" style="animation-delay: 0.2s">
+            <div class="flex items-center justify-between p-4 cursor-pointer hover:bg-white/5 rounded-t-3xl transition" onclick="toggleConfig()">
+                <div class="flex items-center gap-3">
+                    <span class="text-cyan-400">⚡</span>
+                    <h2 class="text-sm font-bold uppercase tracking-widest text-slate-300">Model Engine</h2>
+                </div>
+                <span id="config-arrow" class="transition-transform duration-300 text-slate-500">▼</span>
             </div>
-            <div class="metrics-row" style="grid-template-columns:1fr 1fr;margin-bottom:20px;">
-              <div class="metric-card">
-                <div class="label">STD DEV</div>
-                <div class="value" id="m-std">—<span class="unit"> m</span></div>
-              </div>
-              <div class="metric-card">
-                <div class="label">DEPTH RANGE</div>
-                <div class="value" id="m-range">—<span class="unit"> m</span></div>
-              </div>
+            <div id="config-body" class="p-6 pt-0 space-y-4">
+                <div class="grid grid-cols-1 md:grid-cols-12 gap-4 items-center">
+                    <div class="md:col-span-8 flex flex-col gap-1">
+                        <label class="text-[10px] font-bold text-slate-500 uppercase ml-1">Weights Path</label>
+                        <input id="model-path" type="text" class="input-glass w-full px-4 py-3 text-sm mono" value="best_resunet_depth_model.h5">
+                    </div>
+                    <div class="md:col-span-4 flex gap-2 pt-5">
+                        <button onclick="loadModel()" class="btn-primary flex-1 py-3 text-sm flex items-center justify-center gap-2" id="load-model-btn">
+                            <span id="load-icon">🚀</span> <span id="load-text">Load Model</span>
+                        </button>
+                    </div>
+                </div>
+                <p class="text-[11px] text-slate-500 mono leading-relaxed">
+                    Default: <span class="text-cyan-500">best_resunet_depth_model.h5</span>. Use absolute paths if weights are outside app root.
+                </p>
+            </div>
+        </section>
+
+        <!-- MAIN WORKSPACE -->
+        <main class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            
+            <!-- LEFT: INPUT -->
+            <div class="lg:col-span-4 space-y-6 reveal" style="animation-delay: 0.3s">
+                
+                <!-- UPLOAD -->
+                <div class="glass-card overflow-hidden">
+                    <div class="p-4 border-b border-white/5 bg-white/5">
+                        <h3 class="text-xs font-bold uppercase tracking-widest text-slate-400">Input Source</h3>
+                    </div>
+                    <div class="p-6">
+                        <div id="drop-zone" class="border-2 border-dashed border-white/10 rounded-2xl p-8 text-center cursor-pointer hover:border-cyan-500/50 hover:bg-cyan-500/5 transition-all group" onclick="document.getElementById('file-input').click()">
+                            <input type="file" id="file-input" class="hidden" accept="image/*" onchange="handleFile(this.files[0])">
+                            <div class="text-4xl mb-3 group-hover:scale-110 transition-transform duration-500">📸</div>
+                            <p class="text-sm font-semibold text-slate-200">Snap or Drop Image</p>
+                            <p class="text-[11px] text-slate-500 mt-1">PNG, JPEG, WEBP up to 10MB</p>
+                        </div>
+
+                        <!-- Preview Area -->
+                        <div id="preview-box" class="mt-6 hidden relative group scanning-container">
+                            <div class="scanning-line"></div>
+                            <img id="preview-img" class="w-full h-auto rounded-xl border border-white/10 shadow-2xl transition-transform duration-700" src="" alt="">
+                            <button onclick="clearImage()" class="absolute top-2 right-2 w-8 h-8 rounded-full bg-black/60 backdrop-blur-md flex items-center justify-center border border-white/10 opacity-0 group-hover:opacity-100 transition-all text-red-400 hover:scale-110">✕</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- SETTINGS -->
+                <div class="glass-card">
+                    <div class="p-4 border-b border-white/5 bg-white/5">
+                        <h3 class="text-xs font-bold uppercase tracking-widest text-slate-400">Processing Options</h3>
+                    </div>
+                    <div class="p-6 space-y-4">
+                        <div class="space-y-2">
+                            <label class="text-[10px] font-bold text-slate-500 uppercase">Thermal Colormap</label>
+                            <select id="cmap-select" class="input-glass w-full px-4 py-2 text-sm mono appearance-none cursor-pointer">
+                                <option value="plasma">Plasma (Standard)</option>
+                                <option value="magma">Magma (Deep)</option>
+                                <option value="inferno">Inferno (High Contrast)</option>
+                                <option value="viridis">Viridis (Scientific)</option>
+                                <option value="turbo">Turbo (Gradient)</option>
+                                <option value="jet">Jet (Legacy)</option>
+                            </select>
+                        </div>
+                        <button id="run-btn" onclick="processImage()" disabled class="btn-primary w-full py-4 text-sm flex items-center justify-center gap-3 disabled:opacity-30 disabled:cursor-not-allowed">
+                            <span id="run-icon">✨</span> Generate Depth Map
+                        </button>
+                    </div>
+                </div>
             </div>
 
-            <div class="dist-section">
-              <h3>Depth Distribution</h3>
-              <div class="dist-bar">
-                <div class="dist-segment near"  id="bar-near" style="width:33%"></div>
-                <div class="dist-segment mid"   id="bar-mid"  style="width:34%"></div>
-                <div class="dist-segment far"   id="bar-far"  style="width:33%"></div>
-              </div>
-              <div class="dist-legend">
-                <div class="legend-item"><div class="legend-dot" style="background:var(--near)"></div> Near (<span id="pct-near">—</span>%)</div>
-                <div class="legend-item"><div class="legend-dot" style="background:var(--mid)"></div> Mid (<span id="pct-mid">—</span>%)</div>
-                <div class="legend-item"><div class="legend-dot" style="background:var(--far)"></div> Far (<span id="pct-far">—</span>%)</div>
-              </div>
-            </div>
+            <!-- RIGHT: RESULTS -->
+            <div class="lg:col-span-8 reveal" style="animation-delay: 0.4s">
+                <div class="glass-card h-full flex flex-col min-h-[600px] overflow-hidden">
+                    
+                    <!-- Tabs -->
+                    <div class="flex items-center justify-between px-6 border-b border-white/5 bg-white/5">
+                        <div class="flex gap-8">
+                            <button onclick="switchTab('visual')" id="tab-visual" class="py-4 text-xs font-bold uppercase tracking-widest transition tab-active">Visual Studio</button>
+                            <button onclick="switchTab('metrics')" id="tab-metrics" class="py-4 text-xs font-bold uppercase tracking-widest text-slate-500 transition hover:text-white">Analytics</button>
+                        </div>
+                        <div id="time-badge" class="hidden text-[10px] mono text-cyan-400 bg-cyan-400/10 px-2 py-1 rounded animate-pulse">INF: 124ms</div>
+                    </div>
 
-            <div class="inf-time" id="inf-time-box">
-              ⏱ Inference time: <strong id="m-time">—</strong>
-            </div>
-          </div>
-        </div>
+                    <!-- Content: Idle -->
+                    <div id="results-idle" class="flex-1 flex flex-col items-center justify-center p-12 text-center">
+                        <div class="w-24 h-24 rounded-full bg-white/5 flex items-center justify-center mb-6 border border-white/10 group">
+                            <span class="text-4xl animate-bounce">🛰️</span>
+                        </div>
+                        <h3 class="text-xl font-bold text-white mb-2">Awaiting Data Stream</h3>
+                        <p class="text-slate-500 max-w-sm text-sm">Upload an image and run the Res-UNet engine to generate spatial depth analytics.</p>
+                    </div>
 
-      </div>
+                    <!-- Content: Loading -->
+                    <div id="results-loading" class="hidden flex-1 flex flex-col items-center justify-center p-12 text-center">
+                        <div class="loading-ring mb-6" style="width: 48px; height: 48px;"></div>
+                        <h3 class="text-lg font-bold text-cyan-400 animate-pulse">Neural Inference Active</h3>
+                        <p class="text-slate-500 text-sm mono mt-2">Computing tensors • Normalizing spatial layers</p>
+                    </div>
+
+                    <!-- Content: Result View -->
+                    <div id="results-view" class="hidden flex-1 p-6 space-y-6">
+                        
+                        <!-- Visual Tab -->
+                        <div id="view-visual" class="tab-panel space-y-6">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div class="space-y-2 reveal" style="animation-delay: 0.1s">
+                                    <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">RGB Component</span>
+                                    <div class="overflow-hidden rounded-2xl border border-white/10 relative group">
+                                        <img id="res-orig" class="w-full" src="" alt="Input">
+                                        <button onclick="downloadImage('res-orig', 'original_rgb.jpg')" class="download-btn" title="Download Image">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="space-y-2 reveal" style="animation-delay: 0.2s">
+                                    <span class="text-[10px] font-bold text-cyan-500 uppercase tracking-widest">Depth Inference</span>
+                                    <div class="overflow-hidden rounded-2xl border border-cyan-500/30 shadow-[0_0_30px_rgba(0,229,255,0.1)] relative group">
+                                        <img id="res-depth" class="w-full" src="" alt="Output">
+                                        <button onclick="downloadImage('res-depth', 'depth_map.jpg')" class="download-btn" title="Download Depth Map">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="space-y-2 reveal" style="animation-delay: 0.3s">
+                                <span class="text-[10px] font-bold text-purple-500 uppercase tracking-widest">Composite Map (RGB + Depth)</span>
+                                <div class="overflow-hidden rounded-2xl border border-white/10 relative group">
+                                    <img id="res-composite" class="w-full h-auto object-cover" src="" alt="Composite">
+                                    <button onclick="downloadImage('res-composite', 'composite_render.jpg')" class="download-btn" title="Download Composite">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Metrics Tab -->
+                        <div id="view-metrics" class="tab-panel hidden space-y-8">
+                            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                                <div class="glass-card bg-white/5 p-4 space-y-1">
+                                    <span class="text-[10px] text-slate-500 uppercase font-bold">Min Depth</span>
+                                    <div class="text-2xl font-bold mono text-cyan-400 stat-value" id="m-min">0.00m</div>
+                                </div>
+                                <div class="glass-card bg-white/5 p-4 space-y-1">
+                                    <span class="text-[10px] text-slate-500 uppercase font-bold">Max Depth</span>
+                                    <div class="text-2xl font-bold mono text-pink-400 stat-value" id="m-max">0.00m</div>
+                                </div>
+                                <div class="glass-card bg-white/5 p-4 space-y-1">
+                                    <span class="text-[10px] text-slate-500 uppercase font-bold">Mean Depth</span>
+                                    <div class="text-2xl font-bold mono text-white stat-value" id="m-mean">0.00m</div>
+                                </div>
+                                <div class="glass-card bg-white/5 p-4 space-y-1">
+                                    <span class="text-[10px] text-slate-500 uppercase font-bold">Inference</span>
+                                    <div class="text-2xl font-bold mono text-emerald-400 stat-value" id="m-inf">0ms</div>
+                                </div>
+                            </div>
+
+                            <div class="space-y-4">
+                                <div class="flex justify-between items-end">
+                                    <h4 class="text-xs font-bold uppercase tracking-widest text-slate-400">Layer Distribution</h4>
+                                    <div class="flex gap-4 text-[10px] font-bold">
+                                        <span class="text-cyan-400">● NEAR</span>
+                                        <span class="text-purple-400">● MID</span>
+                                        <span class="text-rose-400">● FAR</span>
+                                    </div>
+                                </div>
+                                <div class="h-10 w-full rounded-2xl overflow-hidden flex bg-black/40 border border-white/5 p-1">
+                                    <div id="bar-near" class="h-full bg-cyan-400 transition-all duration-[1s] rounded-l-xl" style="width: 0%"></div>
+                                    <div id="bar-mid" class="h-full bg-purple-500 transition-all duration-[1s]" style="width: 0%"></div>
+                                    <div id="bar-far" class="h-full bg-rose-500 transition-all duration-[1s] rounded-r-xl" style="width: 0%"></div>
+                                </div>
+                            </div>
+
+                            <div id="demo-badge" class="hidden p-4 glass-card border-amber-500/20 bg-amber-500/5 text-xs text-amber-500 italic">
+                                ⚠️ Simulation active. Load a trained model to see real-world depth estimations.
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </main>
+
+        <!-- FOOTER ARCHITECTURE -->
+        <footer class="glass-card p-6 reveal" style="animation-delay: 0.6s">
+            <h4 class="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500 mb-4">Neural Architecture Specifications</h4>
+            <div class="flex flex-wrap gap-2">
+                <span class="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs text-slate-300 flex items-center gap-2">
+                    <span class="w-1.5 h-1.5 bg-cyan-500 rounded-full animate-pulse"></span> RES-UNET-V2
+                </span>
+                <span class="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs text-slate-300 flex items-center gap-2">
+                    <span class="w-1.5 h-1.5 bg-purple-500 rounded-full"></span> 1.4M PARAMS
+                </span>
+                <span class="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs text-slate-300 flex items-center gap-2">
+                    <span class="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span> NYU DEPTH V2 TRAINED
+                </span>
+            </div>
+        </footer>
+
     </div>
 
-  </div>
+    <script>
+        let currentFile = null;
+        let isConfigOpen = true;
 
-  <!-- ── ABOUT CARD ─────────────────────────────────────────────────────── -->
-  <div class="card about-card">
-    <div class="card-title">ℹ️ &nbsp;Architecture — Residual U-Net</div>
-    <div class="arch-pills">
-      <span class="arch-pill">ResUNet</span>
-      <span class="arch-pill">TensorFlow / Keras</span>
-      <span class="arch-pill">NYU Depth V2</span>
-      <span class="arch-pill">256 × 256 Input</span>
-      <span class="arch-pill">Mixed Precision (fp16)</span>
-      <span class="arch-pill purple">MAE Loss</span>
-      <span class="arch-pill purple">RMSE Metric</span>
-      <span class="arch-pill purple">δ &lt; 1.25 Accuracy</span>
-      <span class="arch-pill purple">Adam · lr 1e-4</span>
-      <span class="arch-pill purple">Augmentation</span>
-    </div>
-  </div>
+        // On Startup: Check model status
+        window.addEventListener('load', async () => {
+            try {
+                const res = await fetch('/api/model/status');
+                const data = await res.json();
+                if (data.loaded) {
+                    setStatus('ready', 'MODEL READY');
+                } else {
+                    setStatus('idle', 'NO MODEL');
+                }
+            } catch(e) {
+                setStatus('error', 'SERVER OFFLINE');
+            }
+        });
 
-</div><!-- /page-wrap -->
+        function toggleConfig() {
+            const body = document.getElementById('config-body');
+            const arrow = document.getElementById('config-arrow');
+            isConfigOpen = !isConfigOpen;
+            body.style.display = isConfigOpen ? 'block' : 'none';
+            arrow.style.transform = isConfigOpen ? 'rotate(0deg)' : 'rotate(-90deg)';
+        }
 
-<!-- ── TOAST CONTAINER ─────────────────────────────────────────────────── -->
-<div id="toast-wrap"></div>
+        function switchTab(tabId) {
+            const tabs = ['visual', 'metrics'];
+            const visual = document.getElementById('view-visual');
+            const metrics = document.getElementById('view-metrics');
+            
+            tabs.forEach(t => {
+                document.getElementById('tab-' + t).classList.remove('tab-active');
+                document.getElementById('tab-' + t).classList.add('text-slate-500');
+            });
+            
+            document.getElementById('tab-' + tabId).classList.add('tab-active');
+            document.getElementById('tab-' + tabId).classList.remove('text-slate-500');
 
-<script>
-  // ── STATE ────────────────────────────────────────────────────────────────
-  let currentFile = null;
-  let currentResults = null;
+            if(tabId === 'visual') {
+                metrics.classList.add('hidden');
+                visual.classList.remove('hidden');
+            } else {
+                visual.classList.add('hidden');
+                metrics.classList.remove('hidden');
+            }
+        }
 
-  // ── TOAST ────────────────────────────────────────────────────────────────
-  function toast(msg, type = 'info', dur = 4000) {
-    const wrap = document.getElementById('toast-wrap');
-    const el = document.createElement('div');
-    el.className = `toast ${type}`;
-    const icon = { success: '✅', error: '❌', info: '💡' }[type] || 'ℹ️';
-    el.innerHTML = `<span>${icon}</span><span>${msg}</span>`;
-    wrap.appendChild(el);
-    setTimeout(() => {
-      el.classList.add('out');
-      el.addEventListener('animationend', () => el.remove());
-    }, dur);
-  }
+        function setStatus(type, text) {
+            const pill = document.getElementById('status-pill');
+            const dot = document.getElementById('status-dot');
+            const label = document.getElementById('status-text');
+            
+            label.innerText = text;
 
-  // ── PANEL TOGGLE ─────────────────────────────────────────────────────────
-  document.getElementById('panel-toggle').addEventListener('click', () => {
-    const body = document.getElementById('panel-body');
-    const hdr  = document.getElementById('panel-toggle');
-    const open = body.style.display !== 'none';
-    body.style.display = open ? 'none' : 'block';
-    hdr.classList.toggle('open', !open);
-  });
+            if (type === 'ready') {
+                pill.style.borderColor = 'rgba(16, 185, 129, 0.2)';
+                pill.style.color = '#10b981';
+                dot.style.background = '#10b981';
+                dot.style.boxShadow = '0 0 10px #10b981';
+                dot.classList.remove('animate-pulse');
+            } else if (type === 'busy') {
+                pill.style.borderColor = 'rgba(6, 182, 212, 0.2)';
+                pill.style.color = '#06b6d4';
+                dot.style.background = '#06b6d4';
+                dot.style.boxShadow = '0 0 15px #06b6d4';
+                dot.classList.add('animate-pulse');
+            } else if (type === 'error') {
+                pill.style.borderColor = 'rgba(239, 68, 68, 0.2)';
+                pill.style.color = '#ef4444';
+                dot.style.background = '#ef4444';
+                dot.style.boxShadow = '0 0 10px #ef4444';
+                dot.classList.remove('animate-pulse');
+            } else {
+                pill.style.borderColor = 'rgba(245, 158, 11, 0.2)';
+                pill.style.color = '#f59e0b';
+                dot.style.background = '#f59e0b';
+                dot.style.boxShadow = '0 0 10px #f59e0b';
+                dot.classList.remove('animate-pulse');
+            }
+        }
 
-  // ── FILE HANDLING ────────────────────────────────────────────────────────
-  const dropZone = document.getElementById('drop-zone');
+        function handleFile(file) {
+            if (!file) return;
+            currentFile = file;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                document.getElementById('preview-img').src = e.target.result;
+                document.getElementById('preview-box').classList.remove('hidden');
+                document.getElementById('run-btn').disabled = false;
+                document.getElementById('results-idle').classList.remove('hidden');
+                document.getElementById('results-view').classList.add('hidden');
+                document.getElementById('time-badge').classList.add('hidden');
+            };
+            reader.readAsDataURL(file);
+        }
 
-  ['dragenter','dragover'].forEach(ev =>
-    dropZone.addEventListener(ev, e => { e.preventDefault(); dropZone.classList.add('drag-over'); })
-  );
-  ['dragleave','drop'].forEach(ev =>
-    dropZone.addEventListener(ev, e => { e.preventDefault(); dropZone.classList.remove('drag-over'); })
-  );
-  dropZone.addEventListener('drop', e => {
-    const f = e.dataTransfer.files[0];
-    if (f) handleFile(f);
-  });
+        function clearImage() {
+            currentFile = null;
+            document.getElementById('preview-box').classList.add('hidden');
+            document.getElementById('run-btn').disabled = true;
+            document.getElementById('file-input').value = '';
+            document.getElementById('results-idle').classList.remove('hidden');
+            document.getElementById('results-view').classList.add('hidden');
+        }
 
-  function handleFile(file) {
-    if (!file) return;
-    currentFile = file;
-    const url = URL.createObjectURL(file);
-    document.getElementById('preview-img').src = url;
-    document.getElementById('preview-box').classList.add('visible');
-    document.getElementById('run-btn').disabled = false;
-    resetResults();
-  }
+        async function loadModel() {
+            const path = document.getElementById('model-path').value.trim();
+            if (!path) return;
 
-  function clearImage() {
-    currentFile = null;
-    document.getElementById('preview-img').src = '';
-    document.getElementById('preview-box').classList.remove('visible');
-    document.getElementById('file-input').value = '';
-    document.getElementById('run-btn').disabled = true;
-    resetResults();
-  }
+            const btn = document.getElementById('load-model-btn');
+            const btnText = document.getElementById('load-text');
+            const icon = document.getElementById('load-icon');
+            
+            btn.classList.add('processing');
+            btnText.innerText = 'Loading...';
+            icon.className = 'loading-ring';
+            setStatus('busy', 'LOADING ENGINE');
 
-  function resetResults() {
-    document.getElementById('placeholder').style.display = 'flex';
-    document.getElementById('results-content').classList.remove('visible');
-    document.getElementById('loading-overlay').classList.remove('visible');
-  }
+            try {
+                const res = await fetch('/api/model/load', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ path })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    setStatus('ready', 'MODEL READY');
+                    btnText.innerText = 'Engine Ready';
+                    icon.innerText = '✅';
+                } else {
+                    throw new Error(data.error);
+                }
+            } catch(e) {
+                setStatus('error', 'LOAD FAILED');
+                btnText.innerText = 'Retry Engine';
+                icon.innerText = '❌';
+            } finally {
+                icon.className = '';
+                btn.classList.remove('processing');
+            }
+        }
 
-  // ── MODEL LOADING ────────────────────────────────────────────────────────
-  async function loadModel() {
-    const path = document.getElementById('model-path').value.trim();
-    if (!path) { toast('Please enter a model path', 'error'); return; }
+        async function processImage() {
+            if (!currentFile) return;
 
-    const btn  = document.getElementById('load-btn');
-    const icon = document.getElementById('load-btn-icon');
-    btn.disabled = true;
-    icon.innerHTML = '<span class="spinner" style="width:14px;height:14px;border-width:2px;display:inline-block;vertical-align:middle;"></span>';
+            const previewBox = document.getElementById('preview-box');
+            const runBtn = document.getElementById('run-btn');
+            const cmap = document.getElementById('cmap-select').value;
+            
+            previewBox.classList.add('scanning-active');
+            runBtn.classList.add('processing');
+            runBtn.disabled = true;
+            
+            document.getElementById('results-idle').classList.add('hidden');
+            document.getElementById('results-loading').classList.remove('hidden');
+            document.getElementById('results-view').classList.add('hidden');
+            setStatus('busy', 'INFERENCE ACTIVE');
 
-    try {
-      const res = await fetch('/api/model/load', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ path })
-      });
-      const data = await res.json();
-      if (data.success) {
-        setStatus('loaded');
-        toast('Model loaded successfully!', 'success');
-      } else {
-        setStatus('error');
-        toast(data.error || 'Failed to load model', 'error');
-      }
-    } catch (err) {
-      setStatus('error');
-      toast('Network error: ' + err.message, 'error');
-    } finally {
-      btn.disabled = false;
-      icon.textContent = '▶';
-    }
-  }
+            const fd = new FormData();
+            fd.append('image', currentFile);
+            fd.append('colormap', cmap);
 
-  function demoMode() {
-    setStatus('demo');
-    toast('Demo mode — using synthetic depth', 'info');
-  }
+            try {
+                const res = await fetch('/api/predict', { method: 'POST', body: fd });
+                const data = await res.json();
 
-  function setStatus(s) {
-    const pill = document.getElementById('status-pill');
-    pill.className = 'pill';
-    if (s === 'loaded') { pill.classList.add('pill-green'); pill.textContent = '✓ MODEL READY'; }
-    else if (s === 'demo') { pill.classList.add('pill-yellow'); pill.textContent = '⚠ DEMO MODE'; }
-    else { pill.classList.add('pill-red'); pill.textContent = '✗ MODEL ERROR'; }
-  }
+                if (data.error) throw new Error(data.error);
 
-  // Check status on load — model may have auto-loaded at startup
-  fetch('/api/model/status').then(r => r.json()).then(d => {
-    if (d.loaded) {
-      setStatus('loaded');
-      toast('Model auto-loaded: ' + (d.path || '').split('/').pop(), 'success', 5000);
-    }
-  });
+                // Update Images from base64 response
+                document.getElementById('res-orig').src = 'data:image/jpeg;base64,' + data.original;
+                document.getElementById('res-depth').src = 'data:image/jpeg;base64,' + data.depth_colored;
+                document.getElementById('res-composite').src = 'data:image/jpeg;base64,' + data.composite;
 
-  // ── INFERENCE ────────────────────────────────────────────────────────────
-  async function runInference() {
-    if (!currentFile) { toast('Please upload an image first', 'error'); return; }
+                // Update Metrics
+                const m = data.metrics;
+                document.getElementById('m-min').innerText = m.min.toFixed(2) + 'm';
+                document.getElementById('m-max').innerText = m.max.toFixed(2) + 'm';
+                document.getElementById('m-mean').innerText = m.mean.toFixed(2) + 'm';
+                document.getElementById('m-inf').innerText = m.inference_ms + 'ms';
+                
+                document.getElementById('bar-near').style.width = m.near_ratio + '%';
+                document.getElementById('bar-mid').style.width = m.mid_ratio + '%';
+                document.getElementById('bar-far').style.width = m.far_ratio + '%';
 
-    document.getElementById('placeholder').style.display = 'none';
-    document.getElementById('results-content').classList.remove('visible');
-    document.getElementById('loading-overlay').classList.add('visible');
-    document.getElementById('run-icon').textContent = '⏳';
-    document.getElementById('run-btn').disabled = true;
+                document.getElementById('demo-badge').classList.toggle('hidden', !m.demo_mode);
+                document.getElementById('time-badge').innerText = `INF: ${m.inference_ms}ms`;
+                document.getElementById('time-badge').classList.remove('hidden');
 
-    const cmap = document.getElementById('cmap-select').value;
-    const fd = new FormData();
-    fd.append('image', currentFile);
-    fd.append('colormap', cmap);
+                document.getElementById('results-loading').classList.add('hidden');
+                document.getElementById('results-view').classList.remove('hidden');
+                setStatus('ready', 'ANALYSIS COMPLETE');
+            } catch(e) {
+                setStatus('error', 'SERVER ERROR');
+                document.getElementById('results-loading').classList.add('hidden');
+                document.getElementById('results-idle').classList.remove('hidden');
+            } finally {
+                previewBox.classList.remove('scanning-active');
+                runBtn.classList.remove('processing');
+                runBtn.disabled = false;
+            }
+        }
 
-    try {
-      const res = await fetch('/api/predict', { method: 'POST', body: fd });
-      const data = await res.json();
+        /**
+         * Triggers a download of the image currently assigned to an img tag.
+         * @param {string} imgId - The ID of the <img> element.
+         * @param {string} filename - The default filename for the saved file.
+         */
+        function downloadImage(imgId, filename) {
+            const img = document.getElementById(imgId);
+            if (!img || !img.src || img.src === window.location.href) return;
+            
+            const link = document.createElement('a');
+            link.href = img.src;
+            link.download = filename;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
 
-      if (data.error) throw new Error(data.error);
-
-      currentResults = data;
-      renderResults(data);
-      toast('Depth estimation complete!', 'success');
-    } catch (err) {
-      toast('Error: ' + err.message, 'error');
-      document.getElementById('placeholder').style.display = 'flex';
-    } finally {
-      document.getElementById('loading-overlay').classList.remove('visible');
-      document.getElementById('run-icon').textContent = '🔍';
-      document.getElementById('run-btn').disabled = false;
-    }
-  }
-
-  function renderResults(data) {
-    // Images
-    document.getElementById('res-orig').src      = 'data:image/jpeg;base64,' + data.original;
-    document.getElementById('res-depth').src     = 'data:image/jpeg;base64,' + data.depth_colored;
-    document.getElementById('res-depth2').src    = 'data:image/jpeg;base64,' + data.depth_colored;
-    document.getElementById('res-composite').src = 'data:image/jpeg;base64,' + data.composite;
-    document.getElementById('res-grey').src      = 'data:image/jpeg;base64,' + data.depth_grey;
-
-    // Metrics
-    const m = data.metrics;
-    const fmt = v => v.toFixed(2);
-
-    document.getElementById('m-min').innerHTML   = fmt(m.min)  + '<span class="unit"> m</span>';
-    document.getElementById('m-mean').innerHTML  = fmt(m.mean) + '<span class="unit"> m</span>';
-    document.getElementById('m-max').innerHTML   = fmt(m.max)  + '<span class="unit"> m</span>';
-    document.getElementById('m-std').innerHTML   = fmt(m.std)  + '<span class="unit"> m</span>';
-    document.getElementById('m-range').innerHTML = fmt(m.max - m.min) + '<span class="unit"> m</span>';
-
-    document.getElementById('bar-near').style.width = m.near_ratio + '%';
-    document.getElementById('bar-mid').style.width  = m.mid_ratio  + '%';
-    document.getElementById('bar-far').style.width  = m.far_ratio  + '%';
-    document.getElementById('pct-near').textContent = m.near_ratio.toFixed(1);
-    document.getElementById('pct-mid').textContent  = m.mid_ratio.toFixed(1);
-    document.getElementById('pct-far').textContent  = m.far_ratio.toFixed(1);
-
-    document.getElementById('m-time').textContent = m.inference_ms + ' ms';
-
-    // Demo banner
-    document.getElementById('demo-banner').classList.toggle('visible', !!m.demo_mode);
-
-    // Show
-    document.getElementById('results-content').classList.add('visible');
-    switchView(document.getElementById('view-select').value);
-  }
-
-  // ── VIEW SWITCH ──────────────────────────────────────────────────────────
-  function switchView(val) {
-    document.getElementById('view-sidebyside').style.display = val === 'side-by-side' ? 'grid' : 'none';
-    document.getElementById('view-composite').style.display  = val === 'composite'    ? 'block' : 'none';
-    document.getElementById('view-depthonly').style.display  = val === 'depth-only'   ? 'block' : 'none';
-    document.getElementById('view-greyscale').style.display  = val === 'greyscale'    ? 'block' : 'none';
-  }
-
-  // ── TAB SWITCH ───────────────────────────────────────────────────────────
-  function switchTab(id, btn) {
-    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
-    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-    btn.classList.add('active');
-    document.getElementById('tab-' + id).classList.add('active');
-  }
-</script>
-
+        // Drag and Drop Logic
+        const dz = document.getElementById('drop-zone');
+        dz.addEventListener('dragover', (e) => { e.preventDefault(); dz.classList.add('bg-cyan-500/10', 'border-cyan-500'); });
+        dz.addEventListener('dragleave', () => { dz.classList.remove('bg-cyan-500/10', 'border-cyan-500'); });
+        dz.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dz.classList.remove('bg-cyan-500/10', 'border-cyan-500');
+            if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
+        });
+    </script>
 </body>
 </html>
