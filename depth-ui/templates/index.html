@@ -14,6 +14,14 @@
             --secondary: #7000ff;
             --glass: rgba(15, 20, 30, 0.7);
             --border: rgba(255, 255, 255, 0.08);
+            
+            /* Colormap Gradients for UI and Canvas Export */
+            --cmap-plasma: linear-gradient(to bottom, #f0f921, #f89441, #cc4778, #7e03a8, #0d0887);
+            --cmap-magma: linear-gradient(to bottom, #fcfdbf, #febd82, #f55667, #7d2482, #000004);
+            --cmap-inferno: linear-gradient(to bottom, #fcffa4, #fac228, #f57d15, #8a274a, #000004);
+            --cmap-viridis: linear-gradient(to bottom, #fde725, #7ad151, #22a884, #2a788e, #440154);
+            --cmap-turbo: linear-gradient(to bottom, #7a0403, #f62d18, #ff9421, #30cf5c, #1833f4);
+            --cmap-jet: linear-gradient(to bottom, #7f0000, #ff0000, #ffff00, #00ffff, #00007f);
         }
 
         body {
@@ -24,7 +32,7 @@
             overflow-x: hidden;
         }
 
-        /* ── ANIMATION KEYFRAMES ─────────────────────────────────────── */
+        /* ── ANIMATIONS ─────────────────────────────────────────────── */
         @keyframes fadeInUp {
             from { opacity: 0; transform: translateY(20px); }
             to { opacity: 1; transform: translateY(0); }
@@ -105,115 +113,58 @@
             box-shadow: 0 0 25px var(--accent-glow);
         }
 
-        .btn-primary:active { transform: scale(0.98); }
-
         .btn-primary.processing {
             background: linear-gradient(90deg, var(--accent), var(--secondary), var(--accent));
             background-size: 200% 100%;
             animation: shimmer 2s linear infinite;
         }
 
-        /* ── SCANNING EFFECT ─────────────────────────────────────────── */
-        .scanning-container {
-            position: relative;
-            overflow: hidden;
-        }
-
+        /* ── SCANNING ────────────────────────────────────────────────── */
+        .scanning-container { position: relative; overflow: hidden; }
         .scanning-line {
             position: absolute;
-            left: 0;
-            width: 100%;
-            height: 4px;
+            left: 0; width: 100%; height: 4px;
             background: linear-gradient(to bottom, transparent, var(--accent), transparent);
-            z-index: 10;
-            pointer-events: none;
-            display: none;
+            z-index: 10; pointer-events: none; display: none;
         }
-
         .scanning-active .scanning-line {
-            display: block;
-            animation: scanline 2s ease-in-out infinite;
+            display: block; animation: scanline 2s ease-in-out infinite;
         }
 
         /* ── TABS ────────────────────────────────────────────────────── */
-        .tab-panel {
-            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        .tab-active {
-            color: var(--accent);
-            position: relative;
-        }
-
+        .tab-active { color: var(--accent); position: relative; }
         .tab-active::after {
-            content: '';
-            position: absolute;
-            bottom: -1px;
-            left: 0;
-            width: 100%;
-            height: 2px;
-            background: var(--accent);
-            box-shadow: 0 0 10px var(--accent);
+            content: ''; position: absolute; bottom: -1px; left: 0; width: 100%; height: 2px;
+            background: var(--accent); box-shadow: 0 0 10px var(--accent);
         }
 
-        /* ── MISC ────────────────────────────────────────────────────── */
+        /* ── REPORT PREVIEW ──────────────────────────────────────────── */
+        .report-preview-container {
+            width: 100%;
+            border-radius: 16px;
+            overflow: hidden;
+            border: 1px solid var(--border);
+            background: #ffffff;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.3);
+            cursor: zoom-in;
+            transition: transform 0.3s ease;
+        }
+        .report-preview-container:hover {
+            transform: scale(1.01);
+        }
+        .report-preview-img {
+            width: 100%;
+            display: block;
+        }
+
         .input-glass {
             background: rgba(255, 255, 255, 0.03);
             border: 1px solid var(--border);
-            border-radius: 12px;
-            color: white;
+            border-radius: 12px; color: white;
             transition: all 0.3s;
         }
-
-        .input-glass:focus {
-            border-color: var(--accent);
-            background: rgba(255, 255, 255, 0.08);
-            outline: none;
-        }
-
+        .input-glass:focus { border-color: var(--accent); background: rgba(255, 255, 255, 0.08); outline: none; }
         .mono { font-family: 'JetBrains Mono', monospace; }
-
-        .loading-ring {
-            display: inline-block;
-            width: 24px; height: 24px;
-            border: 3px solid rgba(0, 242, 255, 0.1);
-            border-radius: 50%;
-            border-top-color: var(--accent);
-            animation: spin 1s ease-in-out infinite;
-        }
-        @keyframes spin { to { transform: rotate(360deg); } }
-
-        .download-btn {
-            position: absolute;
-            top: 12px;
-            right: 12px;
-            width: 40px;
-            height: 40px;
-            border-radius: 12px;
-            background: rgba(15, 20, 30, 0.8);
-            backdrop-filter: blur(8px);
-            border: 1px solid var(--border);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: var(--accent);
-            opacity: 0;
-            transform: translateY(-5px);
-            transition: all 0.3s ease;
-            cursor: pointer;
-            z-index: 20;
-        }
-
-        .group:hover .download-btn {
-            opacity: 1;
-            transform: translateY(0);
-        }
-
-        .download-btn:hover {
-            background: var(--accent);
-            color: #05070a;
-            box-shadow: 0 0 15px var(--accent-glow);
-        }
     </style>
 </head>
 <body class="p-4 md:p-8">
@@ -238,7 +189,7 @@
                 </div>
             </div>
             
-            <div id="status-pill" class="glass-card px-4 py-2 flex items-center text-sm font-semibold border-amber-500/20 text-amber-400 transition-colors">
+            <div id="status-pill" class="glass-card px-4 py-2 flex items-center text-sm font-semibold border-amber-500/20 text-amber-400">
                 <span id="status-dot" class="w-2 h-2 rounded-full mr-3 bg-amber-500 shadow-[0_0_8px_#f59e0b]"></span>
                 <span id="status-text">INIT SYSTEM</span>
             </div>
@@ -265,9 +216,6 @@
                         </button>
                     </div>
                 </div>
-                <p class="text-[11px] text-slate-500 mono leading-relaxed">
-                    Default: <span class="text-cyan-500">best_resunet_depth_model.h5</span>. Use absolute paths if weights are outside app root.
-                </p>
             </div>
         </section>
 
@@ -276,7 +224,6 @@
             
             <!-- LEFT: INPUT -->
             <div class="lg:col-span-4 space-y-6 reveal" style="animation-delay: 0.3s">
-                
                 <!-- UPLOAD -->
                 <div class="glass-card overflow-hidden">
                     <div class="p-4 border-b border-white/5 bg-white/5">
@@ -289,12 +236,10 @@
                             <p class="text-sm font-semibold text-slate-200">Snap or Drop Image</p>
                             <p class="text-[11px] text-slate-500 mt-1">PNG, JPEG, WEBP up to 10MB</p>
                         </div>
-
-                        <!-- Preview Area -->
                         <div id="preview-box" class="mt-6 hidden relative group scanning-container">
                             <div class="scanning-line"></div>
-                            <img id="preview-img" class="w-full h-auto rounded-xl border border-white/10 shadow-2xl transition-transform duration-700" src="" alt="">
-                            <button onclick="clearImage()" class="absolute top-2 right-2 w-8 h-8 rounded-full bg-black/60 backdrop-blur-md flex items-center justify-center border border-white/10 opacity-0 group-hover:opacity-100 transition-all text-red-400 hover:scale-110">✕</button>
+                            <img id="preview-img" class="w-full h-auto rounded-xl border border-white/10 shadow-2xl" src="" alt="">
+                            <button onclick="clearImage()" class="absolute top-2 right-2 w-8 h-8 rounded-full bg-black/60 backdrop-blur-md flex items-center justify-center border border-white/10 opacity-0 group-hover:opacity-100 transition-all text-red-400">✕</button>
                         </div>
                     </div>
                 </div>
@@ -316,7 +261,7 @@
                                 <option value="jet">Jet (Legacy)</option>
                             </select>
                         </div>
-                        <button id="run-btn" onclick="processImage()" disabled class="btn-primary w-full py-4 text-sm flex items-center justify-center gap-3 disabled:opacity-30 disabled:cursor-not-allowed">
+                        <button id="run-btn" onclick="processImage()" disabled class="btn-primary w-full py-4 text-sm flex items-center justify-center gap-3 disabled:opacity-30">
                             <span id="run-icon">✨</span> Generate Depth Map
                         </button>
                     </div>
@@ -327,106 +272,72 @@
             <div class="lg:col-span-8 reveal" style="animation-delay: 0.4s">
                 <div class="glass-card h-full flex flex-col min-h-[600px] overflow-hidden">
                     
-                    <!-- Tabs -->
                     <div class="flex items-center justify-between px-6 border-b border-white/5 bg-white/5">
                         <div class="flex gap-8">
-                            <button onclick="switchTab('visual')" id="tab-visual" class="py-4 text-xs font-bold uppercase tracking-widest transition tab-active">Visual Studio</button>
+                            <button onclick="switchTab('visual')" id="tab-visual" class="py-4 text-xs font-bold uppercase tracking-widest transition tab-active">Visual Report</button>
                             <button onclick="switchTab('metrics')" id="tab-metrics" class="py-4 text-xs font-bold uppercase tracking-widest text-slate-500 transition hover:text-white">Analytics</button>
                         </div>
-                        <div id="time-badge" class="hidden text-[10px] mono text-cyan-400 bg-cyan-400/10 px-2 py-1 rounded animate-pulse">INF: 124ms</div>
+                        <div id="time-badge" class="hidden text-[10px] mono text-cyan-400 bg-cyan-400/10 px-2 py-1 rounded">INF: 0ms</div>
                     </div>
 
-                    <!-- Content: Idle -->
                     <div id="results-idle" class="flex-1 flex flex-col items-center justify-center p-12 text-center">
                         <div class="w-24 h-24 rounded-full bg-white/5 flex items-center justify-center mb-6 border border-white/10 group">
                             <span class="text-4xl animate-bounce">🛰️</span>
                         </div>
                         <h3 class="text-xl font-bold text-white mb-2">Awaiting Data Stream</h3>
-                        <p class="text-slate-500 max-w-sm text-sm">Upload an image and run the Res-UNet engine to generate spatial depth analytics.</p>
+                        <p class="text-slate-500 text-sm">Upload an image and run the Res-UNet engine.</p>
                     </div>
 
-                    <!-- Content: Loading -->
                     <div id="results-loading" class="hidden flex-1 flex flex-col items-center justify-center p-12 text-center">
-                        <div class="loading-ring mb-6" style="width: 48px; height: 48px;"></div>
-                        <h3 class="text-lg font-bold text-cyan-400 animate-pulse">Neural Inference Active</h3>
-                        <p class="text-slate-500 text-sm mono mt-2">Computing tensors • Normalizing spatial layers</p>
+                        <div class="w-12 h-12 border-4 border-cyan-500/10 border-t-cyan-500 rounded-full animate-spin mb-4"></div>
+                        <h3 class="text-lg font-bold text-cyan-400">Inference Active</h3>
                     </div>
 
-                    <!-- Content: Result View -->
-                    <div id="results-view" class="hidden flex-1 p-6 space-y-6">
-                        
-                        <!-- Visual Tab -->
-                        <div id="view-visual" class="tab-panel space-y-6">
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div class="space-y-2 reveal" style="animation-delay: 0.1s">
-                                    <span class="text-[10px] font-bold text-slate-500 uppercase tracking-widest">RGB Component</span>
-                                    <div class="overflow-hidden rounded-2xl border border-white/10 relative group">
-                                        <img id="res-orig" class="w-full" src="" alt="Input">
-                                        <button onclick="downloadImage('res-orig', 'original_rgb.jpg')" class="download-btn" title="Download Image">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                                        </button>
-                                    </div>
-                                </div>
-                                <div class="space-y-2 reveal" style="animation-delay: 0.2s">
-                                    <span class="text-[10px] font-bold text-cyan-500 uppercase tracking-widest">Depth Inference</span>
-                                    <div class="overflow-hidden rounded-2xl border border-cyan-500/30 shadow-[0_0_30px_rgba(0,229,255,0.1)] relative group">
-                                        <img id="res-depth" class="w-full" src="" alt="Output">
-                                        <button onclick="downloadImage('res-depth', 'depth_map.jpg')" class="download-btn" title="Download Depth Map">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                            <div class="space-y-2 reveal" style="animation-delay: 0.3s">
-                                <span class="text-[10px] font-bold text-purple-500 uppercase tracking-widest">Composite Map (RGB + Depth)</span>
-                                <div class="overflow-hidden rounded-2xl border border-white/10 relative group">
-                                    <img id="res-composite" class="w-full h-auto object-cover" src="" alt="Composite">
-                                    <button onclick="downloadImage('res-composite', 'composite_render.jpg')" class="download-btn" title="Download Composite">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                                    </button>
-                                </div>
-                            </div>
+                    <!-- Visual Tab (The unified Report View) -->
+                    <div id="results-view" class="hidden flex-1 p-8 space-y-6">
+                        <div class="flex justify-between items-center mb-4">
+                            <h4 class="text-xs font-bold text-slate-500 uppercase tracking-[0.2em]">Generated Report Preview</h4>
+                            <button onclick="downloadReport()" class="btn-primary px-4 py-2 text-xs flex items-center gap-2">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                                Download High-Res Output
+                            </button>
                         </div>
 
-                        <!-- Metrics Tab -->
-                        <div id="view-metrics" class="tab-panel hidden space-y-8">
-                            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
-                                <div class="glass-card bg-white/5 p-4 space-y-1">
-                                    <span class="text-[10px] text-slate-500 uppercase font-bold">Min Depth</span>
-                                    <div class="text-2xl font-bold mono text-cyan-400 stat-value" id="m-min">0.00m</div>
-                                </div>
-                                <div class="glass-card bg-white/5 p-4 space-y-1">
-                                    <span class="text-[10px] text-slate-500 uppercase font-bold">Max Depth</span>
-                                    <div class="text-2xl font-bold mono text-pink-400 stat-value" id="m-max">0.00m</div>
-                                </div>
-                                <div class="glass-card bg-white/5 p-4 space-y-1">
-                                    <span class="text-[10px] text-slate-500 uppercase font-bold">Mean Depth</span>
-                                    <div class="text-2xl font-bold mono text-white stat-value" id="m-mean">0.00m</div>
-                                </div>
-                                <div class="glass-card bg-white/5 p-4 space-y-1">
-                                    <span class="text-[10px] text-slate-500 uppercase font-bold">Inference</span>
-                                    <div class="text-2xl font-bold mono text-emerald-400 stat-value" id="m-inf">0ms</div>
-                                </div>
-                            </div>
+                        <div class="report-preview-container">
+                            <img id="res-report-img" class="report-preview-img" src="" alt="Report Output">
+                        </div>
+                        
+                        <!-- Hidden source images used to build the canvas -->
+                        <img id="src-orig" class="hidden" src="" alt="">
+                        <img id="src-depth" class="hidden" src="" alt="">
+                    </div>
 
-                            <div class="space-y-4">
-                                <div class="flex justify-between items-end">
-                                    <h4 class="text-xs font-bold uppercase tracking-widest text-slate-400">Layer Distribution</h4>
-                                    <div class="flex gap-4 text-[10px] font-bold">
-                                        <span class="text-cyan-400">● NEAR</span>
-                                        <span class="text-purple-400">● MID</span>
-                                        <span class="text-rose-400">● FAR</span>
-                                    </div>
-                                </div>
-                                <div class="h-10 w-full rounded-2xl overflow-hidden flex bg-black/40 border border-white/5 p-1">
-                                    <div id="bar-near" class="h-full bg-cyan-400 transition-all duration-[1s] rounded-l-xl" style="width: 0%"></div>
-                                    <div id="bar-mid" class="h-full bg-purple-500 transition-all duration-[1s]" style="width: 0%"></div>
-                                    <div id="bar-far" class="h-full bg-rose-500 transition-all duration-[1s] rounded-r-xl" style="width: 0%"></div>
-                                </div>
+                    <!-- Metrics Tab -->
+                    <div id="view-metrics" class="tab-panel hidden p-8 space-y-8">
+                        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            <div class="glass-card bg-white/5 p-4 space-y-1">
+                                <span class="text-[10px] text-slate-500 uppercase font-bold">Min Depth</span>
+                                <div class="text-2xl font-bold mono text-cyan-400" id="m-min">0.00m</div>
                             </div>
-
-                            <div id="demo-badge" class="hidden p-4 glass-card border-amber-500/20 bg-amber-500/5 text-xs text-amber-500 italic">
-                                ⚠️ Simulation active. Load a trained model to see real-world depth estimations.
+                            <div class="glass-card bg-white/5 p-4 space-y-1">
+                                <span class="text-[10px] text-slate-500 uppercase font-bold">Max Depth</span>
+                                <div class="text-2xl font-bold mono text-pink-400" id="m-max">0.00m</div>
+                            </div>
+                            <div class="glass-card bg-white/5 p-4 space-y-1">
+                                <span class="text-[10px] text-slate-500 uppercase font-bold">Mean Depth</span>
+                                <div class="text-2xl font-bold mono text-white" id="m-mean">0.00m</div>
+                            </div>
+                            <div class="glass-card bg-white/5 p-4 space-y-1">
+                                <span class="text-[10px] text-slate-500 uppercase font-bold">Inference</span>
+                                <div class="text-2xl font-bold mono text-emerald-400" id="m-inf">0ms</div>
+                            </div>
+                        </div>
+                        <div class="space-y-4">
+                            <h4 class="text-xs font-bold uppercase tracking-widest text-slate-400">Distribution</h4>
+                            <div class="h-10 w-full rounded-2xl overflow-hidden flex bg-black/40 border border-white/5 p-1">
+                                <div id="bar-near" class="h-full bg-cyan-400 transition-all duration-[1s] rounded-l-xl" style="width: 0%"></div>
+                                <div id="bar-mid" class="h-full bg-purple-500 transition-all duration-[1s]" style="width: 0%"></div>
+                                <div id="bar-far" class="h-full bg-rose-500 transition-all duration-[1s] rounded-r-xl" style="width: 0%"></div>
                             </div>
                         </div>
                     </div>
@@ -434,42 +345,22 @@
                 </div>
             </div>
         </main>
-
-        <!-- FOOTER ARCHITECTURE -->
-        <footer class="glass-card p-6 reveal" style="animation-delay: 0.6s">
-            <h4 class="text-[10px] font-bold uppercase tracking-[0.2em] text-slate-500 mb-4">Neural Architecture Specifications</h4>
-            <div class="flex flex-wrap gap-2">
-                <span class="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs text-slate-300 flex items-center gap-2">
-                    <span class="w-1.5 h-1.5 bg-cyan-500 rounded-full animate-pulse"></span> RES-UNET-V2
-                </span>
-                <span class="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs text-slate-300 flex items-center gap-2">
-                    <span class="w-1.5 h-1.5 bg-purple-500 rounded-full"></span> 1.4M PARAMS
-                </span>
-                <span class="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-xs text-slate-300 flex items-center gap-2">
-                    <span class="w-1.5 h-1.5 bg-emerald-500 rounded-full"></span> NYU DEPTH V2 TRAINED
-                </span>
-            </div>
-        </footer>
-
     </div>
+
+    <!-- Background canvas for generation -->
+    <canvas id="report-canvas" class="hidden"></canvas>
 
     <script>
         let currentFile = null;
         let isConfigOpen = true;
+        let currentMetrics = null;
 
-        // On Startup: Check model status
         window.addEventListener('load', async () => {
             try {
                 const res = await fetch('/api/model/status');
                 const data = await res.json();
-                if (data.loaded) {
-                    setStatus('ready', 'MODEL READY');
-                } else {
-                    setStatus('idle', 'NO MODEL');
-                }
-            } catch(e) {
-                setStatus('error', 'SERVER OFFLINE');
-            }
+                if (data.loaded) setStatus('ready', 'MODEL READY');
+            } catch(e) { setStatus('error', 'SERVER OFFLINE'); }
         });
 
         function toggleConfig() {
@@ -481,59 +372,40 @@
         }
 
         function switchTab(tabId) {
-            const tabs = ['visual', 'metrics'];
-            const visual = document.getElementById('view-visual');
-            const metrics = document.getElementById('view-metrics');
+            document.querySelectorAll('.tab-panel').forEach(p => p.classList.add('hidden'));
+            document.getElementById('results-view').classList.add('hidden');
             
-            tabs.forEach(t => {
-                document.getElementById('tab-' + t).classList.remove('tab-active');
-                document.getElementById('tab-' + t).classList.add('text-slate-500');
+            document.querySelectorAll('[id^="tab-"]').forEach(t => {
+                t.classList.remove('tab-active');
+                t.classList.add('text-slate-500');
             });
+
+            if (tabId === 'visual') {
+                document.getElementById('results-view').classList.remove('hidden');
+            } else {
+                document.getElementById('view-' + tabId).classList.remove('hidden');
+            }
             
             document.getElementById('tab-' + tabId).classList.add('tab-active');
             document.getElementById('tab-' + tabId).classList.remove('text-slate-500');
-
-            if(tabId === 'visual') {
-                metrics.classList.add('hidden');
-                visual.classList.remove('hidden');
-            } else {
-                visual.classList.add('hidden');
-                metrics.classList.remove('hidden');
-            }
         }
 
         function setStatus(type, text) {
             const pill = document.getElementById('status-pill');
             const dot = document.getElementById('status-dot');
             const label = document.getElementById('status-text');
-            
             label.innerText = text;
-
-            if (type === 'ready') {
-                pill.style.borderColor = 'rgba(16, 185, 129, 0.2)';
-                pill.style.color = '#10b981';
-                dot.style.background = '#10b981';
-                dot.style.boxShadow = '0 0 10px #10b981';
-                dot.classList.remove('animate-pulse');
-            } else if (type === 'busy') {
-                pill.style.borderColor = 'rgba(6, 182, 212, 0.2)';
-                pill.style.color = '#06b6d4';
-                dot.style.background = '#06b6d4';
-                dot.style.boxShadow = '0 0 15px #06b6d4';
-                dot.classList.add('animate-pulse');
-            } else if (type === 'error') {
-                pill.style.borderColor = 'rgba(239, 68, 68, 0.2)';
-                pill.style.color = '#ef4444';
-                dot.style.background = '#ef4444';
-                dot.style.boxShadow = '0 0 10px #ef4444';
-                dot.classList.remove('animate-pulse');
-            } else {
-                pill.style.borderColor = 'rgba(245, 158, 11, 0.2)';
-                pill.style.color = '#f59e0b';
-                dot.style.background = '#f59e0b';
-                dot.style.boxShadow = '0 0 10px #f59e0b';
-                dot.classList.remove('animate-pulse');
-            }
+            const colors = {
+                ready: ['rgba(16, 185, 129, 0.2)', '#10b981'],
+                busy: ['rgba(6, 182, 212, 0.2)', '#06b6d4'],
+                error: ['rgba(239, 68, 68, 0.2)', '#ef4444'],
+                idle: ['rgba(245, 158, 11, 0.2)', '#f59e0b']
+            }[type] || ['rgba(245, 158, 11, 0.2)', '#f59e0b'];
+            
+            pill.style.borderColor = colors[0];
+            pill.style.color = colors[1];
+            dot.style.background = colors[1];
+            dot.style.boxShadow = `0 0 10px ${colors[1]}`;
         }
 
         function handleFile(file) {
@@ -544,9 +416,8 @@
                 document.getElementById('preview-img').src = e.target.result;
                 document.getElementById('preview-box').classList.remove('hidden');
                 document.getElementById('run-btn').disabled = false;
-                document.getElementById('results-idle').classList.remove('hidden');
                 document.getElementById('results-view').classList.add('hidden');
-                document.getElementById('time-badge').classList.add('hidden');
+                document.getElementById('results-idle').classList.remove('hidden');
             };
             reader.readAsDataURL(file);
         }
@@ -555,24 +426,14 @@
             currentFile = null;
             document.getElementById('preview-box').classList.add('hidden');
             document.getElementById('run-btn').disabled = true;
-            document.getElementById('file-input').value = '';
-            document.getElementById('results-idle').classList.remove('hidden');
-            document.getElementById('results-view').classList.add('hidden');
         }
 
         async function loadModel() {
             const path = document.getElementById('model-path').value.trim();
             if (!path) return;
-
             const btn = document.getElementById('load-model-btn');
-            const btnText = document.getElementById('load-text');
-            const icon = document.getElementById('load-icon');
-            
             btn.classList.add('processing');
-            btnText.innerText = 'Loading...';
-            icon.className = 'loading-ring';
             setStatus('busy', 'LOADING ENGINE');
-
             try {
                 const res = await fetch('/api/model/load', {
                     method: 'POST',
@@ -582,24 +443,14 @@
                 const data = await res.json();
                 if (data.success) {
                     setStatus('ready', 'MODEL READY');
-                    btnText.innerText = 'Engine Ready';
-                    icon.innerText = '✅';
-                } else {
-                    throw new Error(data.error);
-                }
-            } catch(e) {
-                setStatus('error', 'LOAD FAILED');
-                btnText.innerText = 'Retry Engine';
-                icon.innerText = '❌';
-            } finally {
-                icon.className = '';
-                btn.classList.remove('processing');
-            }
+                    document.getElementById('load-icon').innerText = '✅';
+                } else throw new Error(data.error);
+            } catch(e) { setStatus('error', 'LOAD FAILED'); }
+            finally { btn.classList.remove('processing'); }
         }
 
         async function processImage() {
             if (!currentFile) return;
-
             const previewBox = document.getElementById('preview-box');
             const runBtn = document.getElementById('run-btn');
             const cmap = document.getElementById('cmap-select').value;
@@ -607,10 +458,8 @@
             previewBox.classList.add('scanning-active');
             runBtn.classList.add('processing');
             runBtn.disabled = true;
-            
             document.getElementById('results-idle').classList.add('hidden');
             document.getElementById('results-loading').classList.remove('hidden');
-            document.getElementById('results-view').classList.add('hidden');
             setStatus('busy', 'INFERENCE ACTIVE');
 
             const fd = new FormData();
@@ -620,16 +469,14 @@
             try {
                 const res = await fetch('/api/predict', { method: 'POST', body: fd });
                 const data = await res.json();
-
                 if (data.error) throw new Error(data.error);
 
-                // Update Images from base64 response
-                document.getElementById('res-orig').src = 'data:image/jpeg;base64,' + data.original;
-                document.getElementById('res-depth').src = 'data:image/jpeg;base64,' + data.depth_colored;
-                document.getElementById('res-composite').src = 'data:image/jpeg;base64,' + data.composite;
+                // Set source images for the report builder
+                document.getElementById('src-orig').src = 'data:image/jpeg;base64,' + data.original;
+                document.getElementById('src-depth').src = 'data:image/jpeg;base64,' + data.depth_colored;
 
-                // Update Metrics
-                const m = data.metrics;
+                currentMetrics = data.metrics;
+                const m = currentMetrics;
                 document.getElementById('m-min').innerText = m.min.toFixed(2) + 'm';
                 document.getElementById('m-max').innerText = m.max.toFixed(2) + 'm';
                 document.getElementById('m-mean').innerText = m.mean.toFixed(2) + 'm';
@@ -638,13 +485,21 @@
                 document.getElementById('bar-near').style.width = m.near_ratio + '%';
                 document.getElementById('bar-mid').style.width = m.mid_ratio + '%';
                 document.getElementById('bar-far').style.width = m.far_ratio + '%';
+                
+                // Wait for images to load before rendering the unified report
+                await Promise.all([
+                    new Promise(r => document.getElementById('src-orig').onload = r),
+                    new Promise(r => document.getElementById('src-depth').onload = r)
+                ]);
 
-                document.getElementById('demo-badge').classList.toggle('hidden', !m.demo_mode);
-                document.getElementById('time-badge').innerText = `INF: ${m.inference_ms}ms`;
-                document.getElementById('time-badge').classList.remove('hidden');
+                // Generate the unified view
+                const reportUrl = await buildReportImage();
+                document.getElementById('res-report-img').src = reportUrl;
 
                 document.getElementById('results-loading').classList.add('hidden');
                 document.getElementById('results-view').classList.remove('hidden');
+                document.getElementById('time-badge').innerText = `INF: ${m.inference_ms}ms`;
+                document.getElementById('time-badge').classList.remove('hidden');
                 setStatus('ready', 'ANALYSIS COMPLETE');
             } catch(e) {
                 setStatus('error', 'SERVER ERROR');
@@ -658,31 +513,91 @@
         }
 
         /**
-         * Triggers a download of the image currently assigned to an img tag.
-         * @param {string} imgId - The ID of the <img> element.
-         * @param {string} filename - The default filename for the saved file.
+         * Orchestrates the drawing of the combined report on a canvas.
          */
-        function downloadImage(imgId, filename) {
-            const img = document.getElementById(imgId);
-            if (!img || !img.src || img.src === window.location.href) return;
-            
-            const link = document.createElement('a');
-            link.href = img.src;
-            link.download = filename;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
+        async function buildReportImage() {
+            const rgbImg = document.getElementById('src-orig');
+            const depthImg = document.getElementById('src-depth');
+            const canvas = document.getElementById('report-canvas');
+            const ctx = canvas.getContext('2d');
+
+            const imgW = rgbImg.naturalWidth || 512;
+            const imgH = rgbImg.naturalHeight || 512;
+            const margin = 50;
+            const topPadding = 80;
+            const colorBarWidth = 20;
+            const colorBarMargin = 25;
+            const legendTextWidth = 50;
+
+            canvas.width = (imgW * 2) + (margin * 3) + colorBarWidth + legendTextWidth;
+            canvas.height = imgH + topPadding + margin;
+
+            // Fill white background
+            ctx.fillStyle = "#ffffff";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // Draw Titles
+            ctx.fillStyle = "#000000";
+            ctx.font = "bold 24px 'Plus Jakarta Sans', sans-serif";
+            ctx.textAlign = "center";
+            ctx.fillText("Input Image", margin + imgW/2, topPadding - 30);
+            ctx.fillText("Predicted Depth Map", margin + imgW + margin + imgW/2, topPadding - 30);
+
+            // Draw Images
+            ctx.drawImage(rgbImg, margin, topPadding, imgW, imgH);
+            ctx.drawImage(depthImg, margin + imgW + margin, topPadding, imgW, imgH);
+
+            // Draw Color Bar
+            const barX = margin + imgW + margin + imgW + colorBarMargin;
+            const barY = topPadding;
+            const barH = imgH;
+
+            const cmap = document.getElementById('cmap-select').value;
+            const gradients = {
+                plasma: ['#f0f921', '#f89441', '#cc4778', '#7e03a8', '#0d0887'],
+                magma: ['#fcfdbf', '#febd82', '#f55667', '#7d2482', '#000004'],
+                inferno: ['#fcffa4', '#fac228', '#f57d15', '#8a274a', '#000004'],
+                viridis: ['#fde725', '#7ad151', '#22a884', '#2a788e', '#440154'],
+                turbo: ['#7a0403', '#f62d18', '#ff9421', '#30cf5c', '#1833f4'],
+                jet: ['#7f0000', '#ff0000', '#ffff00', '#00ffff', '#00007f']
+            };
+
+            const colors = gradients[cmap] || gradients.plasma;
+            const grd = ctx.createLinearGradient(0, barY, 0, barY + barH);
+            colors.forEach((c, i) => grd.addColorStop(i/(colors.length-1), c));
+            ctx.fillStyle = grd;
+            ctx.fillRect(barX, barY, colorBarWidth, barH);
+            ctx.strokeStyle = "#000000";
+            ctx.strokeRect(barX, barY, colorBarWidth, barH);
+
+            // Draw Scale Numbers
+            ctx.fillStyle = "#000000";
+            ctx.font = "14px 'JetBrains Mono', monospace";
+            ctx.textAlign = "left";
+            const steps = 5;
+            const maxD = currentMetrics?.max || 10;
+            const minD = currentMetrics?.min || 0;
+            for(let i=0; i<=steps; i++) {
+                const y = barY + (barH * (i/steps));
+                const val = (maxD - ((maxD - minD) * (i/steps))).toFixed(1);
+                ctx.fillText(val + (i===0 ? 'm' : ''), barX + colorBarWidth + 8, y + 5);
+                ctx.beginPath();
+                ctx.moveTo(barX + colorBarWidth, y);
+                ctx.lineTo(barX + colorBarWidth + 5, y);
+                ctx.stroke();
+            }
+
+            return canvas.toDataURL('image/png');
         }
 
-        // Drag and Drop Logic
-        const dz = document.getElementById('drop-zone');
-        dz.addEventListener('dragover', (e) => { e.preventDefault(); dz.classList.add('bg-cyan-500/10', 'border-cyan-500'); });
-        dz.addEventListener('dragleave', () => { dz.classList.remove('bg-cyan-500/10', 'border-cyan-500'); });
-        dz.addEventListener('drop', (e) => {
-            e.preventDefault();
-            dz.classList.remove('bg-cyan-500/10', 'border-cyan-500');
-            if (e.dataTransfer.files.length) handleFile(e.dataTransfer.files[0]);
-        });
+        function downloadReport() {
+            const reportImg = document.getElementById('res-report-img');
+            if (!reportImg.src) return;
+            const link = document.createElement('a');
+            link.download = `DepthSense_Report_${Date.now()}.png`;
+            link.href = reportImg.src;
+            link.click();
+        }
     </script>
 </body>
 </html>
